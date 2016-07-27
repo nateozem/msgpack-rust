@@ -1023,11 +1023,17 @@ pub fn read_f64<R>(rd: &mut R) -> Result<f64, ValueReadError>
 pub fn read_str_len<R>(rd: &mut R) -> Result<u32, ValueReadError>
     where R: Read
 {
+    Ok(try!(read_str_len_with_nread(rd)).0)
+}
+
+fn read_str_len_with_nread<R>(rd: &mut R) -> Result<(u32, usize), ValueReadError>
+    where R: Read
+{
     match try!(read_marker(rd)) {
-        Marker::FixStr(size) => Ok(size as u32),
-        Marker::Str8  => Ok(try!(read_numeric_data::<R, u8>(rd))  as u32),
-        Marker::Str16 => Ok(try!(read_numeric_data::<R, u16>(rd)) as u32),
-        Marker::Str32 => Ok(try!(read_numeric_data(rd))),
+        Marker::FixStr(size) => Ok((size as u32, 1)),
+        Marker::Str8  => Ok((try!(read_numeric_data::<R, u8>(rd))  as u32, 2)),
+        Marker::Str16 => Ok((try!(read_numeric_data::<R, u16>(rd)) as u32, 3)),
+        Marker::Str32 => Ok((try!(read_numeric_data(rd)), 5)),
         marker        => Err(ValueReadError::TypeMismatch(marker))
     }
 }
@@ -1080,6 +1086,7 @@ pub fn read_str<'r, R>(rd: &mut R, mut buf: &'r mut [u8]) -> Result<&'r str, Dec
     read_str_data(rd, len, &mut buf[0..ulen])
 }
 
+#[doc(hidden)]
 pub fn read_str_data<'r, R>(rd: &mut R, len: u32, buf: &'r mut[u8]) -> Result<&'r str, DecodeStringError<'r>>
     where R: Read
 {
@@ -1098,16 +1105,50 @@ pub fn read_str_data<'r, R>(rd: &mut R, len: u32, buf: &'r mut[u8]) -> Result<&'
     }
 }
 
-/// Attempts to read and decode a string value from the reader, returning a borrowed slice from it.
+/// Attempts to read and decode a string value from the given slice, returning a tuple with an
+/// UTF-8 string decoded and the unparsed part of the slice.
 ///
-// TODO: it is better to return &str; may panic on len mismatch; extend documentation.
-// TODO: Also it's possible to implement all borrowing functions for all `BufRead` implementors.
-// TODO: It's not necessary to use cursor, use slices instead.
-pub fn read_str_ref(rd: &[u8]) -> Result<&[u8], DecodeStringError> {
-    let mut cur = io::Cursor::new(rd);
-    let len = try!(read_str_len(&mut cur));
-    let start = cur.position() as usize;
-    Ok(&rd[start .. start + len as usize])
+/// # Examples
+///
+/// ```
+/// use rmp::encode::write_str;
+/// use rmp::decode::read_str_from_slice;
+///
+/// let mut buf = Vec::new();
+/// write_str(&mut buf, "Unpacking").unwrap();
+/// write_str(&mut buf, "multiple").unwrap();
+/// write_str(&mut buf, "strings").unwrap();
+///
+/// let mut chunks = Vec::new();
+/// let mut unparsed = &buf[..];
+/// loop {
+///     match read_str_from_slice(unparsed) {
+///         Ok((chunk, tail)) => {
+///             chunks.push(chunk);
+///             unparsed = tail;
+///         }
+///         Err(..) => break,
+///     }
+/// }
+///
+/// assert_eq!(vec!["Unpacking", "multiple", "strings"], chunks);
+/// ```
+pub fn read_str_from_slice<T: ?Sized + AsRef<[u8]>>(buf: &T) ->
+    Result<(&str, &[u8]), DecodeStringError>
+{
+    let buf = buf.as_ref();
+    let (len, nread) = try!(read_str_len_with_nread(&mut &buf[..]));
+    let ulen = len as usize;
+
+    if buf[nread..].len() >= ulen {
+        let (head, tail) = buf.split_at(nread + ulen);
+        match from_utf8(&mut &head[nread..]) {
+            Ok(val) => Ok((val, tail)),
+            Err(err) => Err(DecodeStringError::InvalidUtf8(buf, err)),
+        }
+    } else {
+        Err(DecodeStringError::BufferSizeTooSmall(len))
+    }
 }
 
 /// Attempts to read up to 5 bytes from the given reader and to decode them as a big-endian u32
