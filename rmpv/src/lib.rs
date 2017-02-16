@@ -16,7 +16,7 @@ pub mod decode;
 pub mod encode;
 
 #[cfg(feature = "with-serde")]
-mod ext;
+pub mod ext;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {

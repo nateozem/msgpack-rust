@@ -9,175 +9,8 @@ use serde::Deserialize;
 
 use rmp_serde::Deserializer;
 use rmpv::Value;
-
-#[test]
-fn pass_null_value() {
-    let buf = [0xc0];
-    let cur = Cursor::new(&buf[..]);
-
-    let mut de = Deserializer::new(cur);
-
-    assert_eq!(Value::Nil, Deserialize::deserialize(&mut de).unwrap());
-}
-
-#[test]
-fn pass_bool_value() {
-    let buf = [0xc2, 0xc3];
-    let cur = Cursor::new(&buf[..]);
-
-    let mut de = Deserializer::new(cur);
-
-    assert_eq!(Value::from(false), Deserialize::deserialize(&mut de).unwrap());
-    assert_eq!(Value::from(true), Deserialize::deserialize(&mut de).unwrap());
-}
-
-#[test]
-fn pass_u64_value() {
-    let buf = [0xcf, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
-    let cur = Cursor::new(&buf[..]);
-
-    let mut de = Deserializer::new(cur);
-
-    assert_eq!(Value::from(18446744073709551615u64), Deserialize::deserialize(&mut de).unwrap());
-}
-
-#[test]
-fn pass_u32_value() {
-    let buf = [0xce, 0xff, 0xff, 0xff, 0xff];
-    let cur = Cursor::new(&buf[..]);
-
-    let mut de = Deserializer::new(cur);
-
-    assert_eq!(Value::from(4294967295u32), Deserialize::deserialize(&mut de).unwrap());
-}
-
-#[test]
-fn pass_u16_value() {
-    let buf = [0xcd, 0xff, 0xff];
-    let cur = Cursor::new(&buf[..]);
-
-    let mut de = Deserializer::new(cur);
-
-    assert_eq!(Value::from(65535u16), Deserialize::deserialize(&mut de).unwrap());
-}
-
-#[test]
-fn pass_u8_value() {
-    let buf = [0xcc, 0xff];
-    let cur = Cursor::new(&buf[..]);
-
-    let mut de = Deserializer::new(cur);
-
-    assert_eq!(Value::from(255u8), Deserialize::deserialize(&mut de).unwrap());
-}
-
-#[test]
-fn pass_usize_value() {
-    let buf = [0xcc, 0xff];
-    let cur = Cursor::new(&buf[..]);
-
-    let mut de = Deserializer::new(cur);
-
-    assert_eq!(Value::from(255usize), Deserialize::deserialize(&mut de).unwrap());
-}
-
-#[test]
-fn pass_i64_value() {
-    let buf = [0xd3, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
-    let cur = Cursor::new(&buf[..]);
-
-    let mut de = Deserializer::new(cur);
-
-    assert_eq!(Value::from(9223372036854775807i64), Deserialize::deserialize(&mut de).unwrap());
-}
-
-#[test]
-fn pass_i32_value() {
-    let buf = [0xd2, 0x7f, 0xff, 0xff, 0xff];
-    let cur = Cursor::new(&buf[..]);
-
-    let mut de = Deserializer::new(cur);
-
-    assert_eq!(Value::from(2147483647i32),
-               Deserialize::deserialize(&mut de).unwrap());
-}
-
-#[test]
-fn pass_i16_value() {
-    let buf = [0xd1, 0x7f, 0xff];
-    let cur = Cursor::new(&buf[..]);
-
-    let mut de = Deserializer::new(cur);
-
-    assert_eq!(Value::from(32767i16),
-               Deserialize::deserialize(&mut de).unwrap());
-}
-
-#[test]
-fn pass_i8_value() {
-    let buf = [0xd0, 0x7f];
-    let cur = Cursor::new(&buf[..]);
-
-    let mut de = Deserializer::new(cur);
-
-    assert_eq!(Value::from(127i8),
-               Deserialize::deserialize(&mut de).unwrap());
-}
-
-#[test]
-fn pass_isize_value() {
-    let buf = [0xd0, 0x7f];
-    let cur = Cursor::new(&buf[..]);
-
-    let mut de = Deserializer::new(cur);
-
-    assert_eq!(Value::from(127isize),
-               Deserialize::deserialize(&mut de).unwrap());
-}
-
-#[test]
-fn pass_f32_value() {
-    let buf = [0xca, 0x7f, 0x7f, 0xff, 0xff];
-    let cur = Cursor::new(&buf[..]);
-
-    let mut de = Deserializer::new(cur);
-
-    assert_eq!(Value::from(3.4028234e38_f32),
-               Deserialize::deserialize(&mut de).unwrap());
-}
-
-#[test]
-fn pass_f64_value() {
-    let buf = [0xcb, 0x40, 0x45, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
-    let cur = Cursor::new(&buf[..]);
-
-    let mut de = Deserializer::new(cur);
-
-    assert_eq!(Value::from(42f64),
-               Deserialize::deserialize(&mut de).unwrap());
-}
-
-#[test]
-fn pass_string_value() {
-    let buf = [0xaa, 0x6c, 0x65, 0x20, 0x6d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65];
-    let cur = Cursor::new(&buf[..]);
-
-    let mut de = Deserializer::new(cur);
-    let actual = Deserialize::deserialize(&mut de).unwrap();
-
-    assert_eq!(Value::String("le message".into()), actual);
-}
-
-#[test]
-fn pass_tuple_value() {
-    let buf = [0x92, 0x2a, 0xce, 0x0, 0x1, 0x88, 0x94];
-    let cur = Cursor::new(&buf[..]);
-
-    let mut de = Deserializer::new(cur);
-    let actual = Deserialize::deserialize(&mut de).unwrap();
-
-    assert_eq!(Value::Array(vec![Value::from(42), Value::from(100500)]), actual);
-}
+use rmpv::decode::read_value;
+use rmpv::ext::from_value;
 
 #[test]
 fn pass_option_some_value() {
@@ -197,16 +30,6 @@ fn pass_option_none_value() {
     let mut de = Deserializer::new(cur);
     let actual = Deserialize::deserialize(&mut de).unwrap();
     assert_eq!(Value::Nil, actual);
-}
-
-#[test]
-fn pass_vector_value() {
-    let buf = [0x92, 0x00, 0xcc, 0x80];
-    let cur = Cursor::new(&buf[..]);
-
-    let mut de = Deserializer::new(cur);
-    let actual = Deserialize::deserialize(&mut de).unwrap();
-    assert_eq!(Value::Array(vec![Value::from(0), Value::from(128)]), actual);
 }
 
 #[test]
@@ -257,4 +80,94 @@ fn pass_bin32_into_bytebuf_value() {
     let actual = Deserialize::deserialize(&mut de).unwrap();
 
     assert_eq!(Value::Binary(vec![0xcc, 0x80]), actual);
+}
+
+fn test_parse_ok<T>(tc: Vec<(&[u8], T)>)
+    where T: Debug + PartialEq + Deserialize
+{
+    for (buf, val) in tc {
+        let newval: Value = read_value(&mut &buf[..]).unwrap();
+        let v: T = from_value(newval).unwrap();
+        assert_eq!(v, val);
+    }
+}
+
+#[test]
+fn pass_null() {
+    test_parse_ok::<()>(vec![
+        (&[0xc0], ())
+    ]);
+}
+
+#[test]
+fn pass_bool() {
+    test_parse_ok::<bool>(vec![
+        (&[0xc2], false),
+        (&[0xc3], true),
+    ]);
+}
+
+#[test]
+fn pass_u64() {
+    test_parse_ok::<u64>(vec![
+        (&[0x7f], 127),
+        (&[0xcc, 0xff], 255),
+        (&[0xcd, 0xff, 0xff], 65535),
+        (&[0xce, 0xff, 0xff, 0xff, 0xff], 4294967295),
+        (&[0xcf, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff], 18446744073709551615u64),
+    ]);
+}
+
+#[test]
+fn pass_i64() {
+    test_parse_ok::<i64>(vec![
+        (&[0x00], 0),
+        (&[0xd0, 0x7f], 127),
+        (&[0xd1, 0x7f, 0xff], 32767),
+        (&[0xd2, 0x7f, 0xff, 0xff, 0xff], 2147483647),
+        (&[0xd3, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff], 9223372036854775807),
+    ]);
+}
+
+#[test]
+fn pass_f32() {
+    test_parse_ok::<f32>(vec![
+        (&[0xca, 0x7f, 0x7f, 0xff, 0xff], 3.4028234e38),
+    ]);
+}
+
+#[test]
+fn pass_f64() {
+    test_parse_ok::<f64>(vec![
+        (&[0xcb, 0x40, 0x45, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], 42.),
+    ]);
+}
+
+#[test]
+fn pass_string() {
+    test_parse_ok::<String>(vec![
+        (&[0xaa, 0x6c, 0x65, 0x20, 0x6d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65], "le message".into()),
+    ]);
+}
+
+#[test]
+fn pass_tuple() {
+    test_parse_ok::<(u8, u32)>(vec![
+        (&[0x92, 0x2a, 0xce, 0x0, 0x1, 0x88, 0x94], (42, 100500)),
+    ]);
+}
+
+#[test]
+fn pass_array() {
+    test_parse_ok::<[u32; 2]>(vec![
+        (&[0x92, 0x2a, 0xce, 0x0, 0x1, 0x88, 0x94], [42, 100500]),
+    ]);
+}
+
+#[test]
+fn pass_vec() {
+    test_parse_ok::<Vec<u32>>(vec![
+        (&[0x92, 0x00, 0xcc, 0x80], vec![0, 128]),
+        (&[0x92, 0x2a, 0xce, 0x0, 0x1, 0x88, 0x94], vec![42, 100500]),
+    ]);
 }
