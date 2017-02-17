@@ -193,7 +193,7 @@ impl de::Error for Error {
     }
 }
 
-pub struct Deserializer {}
+pub struct Deserializer;
 
 impl de::Deserializer for Value {
     type Error = Error;
