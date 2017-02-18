@@ -1,11 +1,143 @@
 extern crate serde;
+#[macro_use] extern crate serde_derive;
 extern crate rmp_serde;
 extern crate rmpv;
 
+use std::fmt::Debug;
+
 use serde::Serialize;
+use serde::bytes::{Bytes, ByteBuf};
 
 use rmp_serde::Serializer;
 use rmpv::Value;
+use rmpv::ext::to_value;
+
+fn test_encode_ok<T>(tc: &[(T, Value)])
+    where T: Debug + PartialEq + Serialize
+{
+    for &(ref c, ref val) in tc {
+        assert_eq!(val, &to_value(&c).unwrap());
+    }
+}
+
+#[test]
+fn pass_write_nil() {
+    test_encode_ok(&[
+        ((), Value::Nil),
+    ]);
+}
+
+#[test]
+fn pass_write_bool() {
+    test_encode_ok(&[
+        (true, Value::Boolean(true)),
+        (false, Value::Boolean(false)),
+    ]);
+}
+
+#[test]
+fn pass_write_sint() {
+    test_encode_ok(&[
+        (0, Value::I64(0)),
+        (127i8, Value::I64(127)),
+        (-128i8, Value::I64(-128)),
+    ]);
+
+    test_encode_ok(&[
+        (0, Value::I64(0)),
+        (32767i16, Value::I64(32767)),
+        (-32768i16, Value::I64(-32768)),
+    ]);
+
+    test_encode_ok(&[
+        (0, Value::I64(0)),
+        (9223372036854775807i64, Value::I64(9223372036854775807)),
+        (-9223372036854775808i64, Value::I64(-9223372036854775808)),
+    ]);
+}
+
+#[test]
+fn pass_write_uint() {
+    test_encode_ok(&[
+        (0, Value::U64(0)),
+        (255u8, Value::U64(255)),
+    ]);
+
+    test_encode_ok(&[
+        (0, Value::U64(0)),
+        (65535u16, Value::U64(65535)),
+    ]);
+
+    test_encode_ok(&[
+        (0, Value::U64(0)),
+        (18446744073709551615u64, Value::U64(18446744073709551615u64)),
+    ]);
+}
+
+#[test]
+fn pass_write_float() {
+    test_encode_ok(&[
+        (3.1415f32, Value::F32(3.1415)),
+    ]);
+
+    test_encode_ok(&[
+        (3.1415f64, Value::F64(3.1415)),
+    ]);
+}
+
+#[test]
+fn pass_write_char() {
+    test_encode_ok(&[
+        ('c', Value::String("c".into())),
+    ]);
+}
+
+#[test]
+fn pass_write_string() {
+    test_encode_ok(&[
+        ("le message", Value::String("le message".into())),
+    ]);
+
+    test_encode_ok(&[
+        ("le message".to_string(), Value::String("le message".into())),
+    ]);
+}
+
+#[test]
+fn pass_write_bytes() {
+    test_encode_ok(&[
+        (Bytes::new(&[0, 1, 2]), Value::Binary(vec![0, 1, 2])),
+    ]);
+
+    test_encode_ok(&[
+        (ByteBuf::from(&[0, 1, 2][..]), Value::Binary(vec![0, 1, 2])),
+    ]);
+}
+
+#[test]
+fn pass_write_unit_struct() {
+    #[derive(Debug, PartialEq, Serialize)]
+    struct Unit;
+
+    test_encode_ok(&[
+        (Unit, Value::Nil),
+    ]);
+}
+
+#[test]
+fn pass_write_enum() {
+    #[derive(Debug, PartialEq, Serialize)]
+    enum Enum {
+        Unit,
+        Newtype(String),
+        Tuple(String, u32),
+        Struct { name: String, age: u32 },
+    }
+
+    test_encode_ok(&[
+        (Enum::Unit, Value::Nil), // TODO: Need round-trip cases.
+    ]);
+}
 
 #[test]
 fn pass_value_nil() {

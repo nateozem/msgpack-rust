@@ -2,17 +2,18 @@ use std::error;
 use std::fmt::{self, Display, Formatter};
 use std::vec::IntoIter;
 
-use serde::{self, Serialize, Serializer, Deserialize};
+use serde::{self, Serialize, Deserialize};
 use serde::bytes::Bytes;
 use serde::de::{self, DeserializeSeed, SeqVisitor, Unexpected, Visitor};
 use serde::de::value::ValueDeserializer;
-use serde::ser::{SerializeSeq, SerializeMap};
+use serde::ser::{self, SerializeSeq, SerializeTuple, SerializeTupleStruct, SerializeTupleVariant,
+    SerializeMap, SerializeStruct};
 
 use Value;
 
 impl Serialize for Value {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
-        where S: Serializer
+        where S: ser::Serializer
     {
         match *self {
             Value::Nil => s.serialize_unit(),
@@ -188,6 +189,12 @@ impl error::Error for Error {
 }
 
 impl de::Error for Error {
+    fn custom<T: Display>(msg: T) -> Self {
+        Error::Syntax(format!("{}", msg))
+    }
+}
+
+impl ser::Error for Error {
     fn custom<T: Display>(msg: T) -> Self {
         Error::Syntax(format!("{}", msg))
     }
@@ -522,11 +529,385 @@ impl ValueExt for Value {
 }
 
 pub fn from_value<T>(val: Value) -> Result<T, Error>
-    where T: de::Deserialize
+    where T: Deserialize
 {
-    de::Deserialize::deserialize(val)
+    Deserialize::deserialize(val)
 }
 
-// pub fn to_value<T: Serialize>(value: T) -> Result<Value, Error> {
-//     value.serialize(Serializer)
+struct Serializer;
+
+/// Convert a `T` into `rmpv::Value` which is an enum that can represent any valid MessagePack data.
+///
+/// This conversion can fail if `T`'s implementation of `Serialize` decides to fail.
+///
+/// ```rust
+/// # use rmpv::Value;
+///
+/// let val = rmpv::ext::to_value("John Smith").unwrap();
+///
+/// assert_eq!(Value::String("John Smith".into()), val);
+/// ```
+pub fn to_value<T: Serialize>(value: T) -> Result<Value, Error> {
+    value.serialize(Serializer)
+}
+
+impl ser::Serializer for Serializer {
+    type Ok = Value;
+    type Error = Error;
+
+    type SerializeSeq = Dummy;//SerializeVec;
+    type SerializeTuple = Dummy;//SerializeVec;
+    type SerializeTupleStruct = Dummy;//SerializeVec;
+    type SerializeTupleVariant = Dummy;//SerializeTupleVariant;
+    type SerializeMap = Dummy;//SerializeMap;
+    type SerializeStruct = Dummy;//SerializeMap;
+    type SerializeStructVariant = Dummy;//SerializeStructVariant;
+
+    #[inline]
+    fn serialize_bool(self, val: bool) -> Result<Self::Ok, Self::Error> {
+        Ok(Value::Boolean(val))
+    }
+
+    #[inline]
+    fn serialize_i8(self, val: i8) -> Result<Self::Ok, Self::Error> {
+        self.serialize_i64(val as i64)
+    }
+
+    #[inline]
+    fn serialize_i16(self, val: i16) -> Result<Self::Ok, Self::Error> {
+        self.serialize_i64(val as i64)
+    }
+
+    #[inline]
+    fn serialize_i32(self, val: i32) -> Result<Self::Ok, Self::Error> {
+        self.serialize_i64(val as i64)
+    }
+
+    #[inline]
+    fn serialize_i64(self, val: i64) -> Result<Self::Ok, Self::Error> {
+        Ok(Value::I64(val))
+    }
+
+    #[inline]
+    fn serialize_u8(self, val: u8) -> Result<Self::Ok, Self::Error> {
+        self.serialize_u64(val as u64)
+    }
+
+    #[inline]
+    fn serialize_u16(self, val: u16) -> Result<Self::Ok, Self::Error> {
+        self.serialize_u64(val as u64)
+    }
+
+    #[inline]
+    fn serialize_u32(self, val: u32) -> Result<Self::Ok, Self::Error> {
+        self.serialize_u64(val as u64)
+    }
+
+    #[inline]
+    fn serialize_u64(self, val: u64) -> Result<Self::Ok, Self::Error> {
+        Ok(Value::U64(val))
+    }
+
+    #[inline]
+    fn serialize_f32(self, val: f32) -> Result<Self::Ok, Self::Error> {
+        Ok(Value::F32(val))
+    }
+
+    #[inline]
+    fn serialize_f64(self, val: f64) -> Result<Self::Ok, Self::Error> {
+        Ok(Value::F64(val))
+    }
+
+    #[inline]
+    fn serialize_char(self, val: char) -> Result<Self::Ok, Self::Error> {
+        let mut buf = String::new();
+        buf.push(val);
+        self.serialize_str(&buf)
+    }
+
+    #[inline]
+    fn serialize_str(self, val: &str) -> Result<Self::Ok, Self::Error> {
+        Ok(Value::String(val.into()))
+    }
+
+    #[inline]
+    fn serialize_bytes(self, val: &[u8]) -> Result<Self::Ok, Self::Error> {
+        Ok(Value::Binary(val.into()))
+    }
+
+    #[inline]
+    fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
+        Ok(Value::Nil)
+    }
+
+    #[inline]
+    fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok, Self::Error> {
+        self.serialize_unit()
+    }
+
+    #[inline]
+    fn serialize_unit_variant(self, _name: &'static str, _variant_index: usize, _variant: &'static str) -> Result<Self::Ok, Self::Error> {
+        self.serialize_unit()
+    }
+
+    #[inline]
+    fn serialize_newtype_struct<T: ?Sized>(self, _name: &'static str, value: &T) -> Result<Self::Ok, Self::Error>
+        where T: Serialize
+    {
+        // value.serialize(self)
+        unimplemented!();
+    }
+
+    fn serialize_newtype_variant<T: ?Sized>(self, _name: &'static str, _variant_index: usize, variant: &'static str, value: &T) -> Result<Self::Ok, Self::Error>
+        where T: Serialize
+    {
+        // let mut values = Map::new();
+        // values.insert(String::from(variant), try!(to_value(&value)));
+        // Ok(Value::Object(values))
+        unimplemented!();
+    }
+
+    #[inline]
+    fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
+        // self.serialize_unit()
+        unimplemented!();
+    }
+
+    #[inline]
+    fn serialize_some<T: ?Sized>(self, value: &T) -> Result<Self::Ok, Self::Error>
+        where T: Serialize
+    {
+        // value.serialize(self)
+        unimplemented!();
+    }
+
+    fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
+        // Ok(SerializeVec {
+        //     vec: Vec::with_capacity(len.unwrap_or(0))
+        // })
+        unimplemented!();
+    }
+
+    fn serialize_seq_fixed_size(self, size: usize) -> Result<Self::SerializeSeq, Error> {
+        // self.serialize_seq(Some(size))
+        unimplemented!();
+    }
+
+    fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple, Error> {
+        // self.serialize_seq(Some(len))
+        unimplemented!();
+    }
+
+    fn serialize_tuple_struct(self, _name: &'static str, len: usize) -> Result<Self::SerializeTupleStruct, Error> {
+        // self.serialize_seq(Some(len))
+        unimplemented!();
+    }
+
+    fn serialize_tuple_variant(self, _name: &'static str, _variant_index: usize, variant: &'static str, len: usize) -> Result<Self::SerializeTupleVariant, Error> {
+        // Ok(SerializeTupleVariant {
+        //     name: String::from(variant),
+        //     vec: Vec::with_capacity(len),
+        // })
+        unimplemented!();
+    }
+
+    fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap, Error> {
+        // Ok(SerializeMap {
+        //     map: Map::new(),
+        //     next_key: None,
+        // })
+        unimplemented!();
+    }
+
+    fn serialize_struct(self, _name: &'static str, len: usize) -> Result<Self::SerializeStruct, Error> {
+        // self.serialize_map(Some(len))
+        unimplemented!();
+    }
+
+    fn serialize_struct_variant(self, _name: &'static str, _variant_index: usize, variant: &'static str, _len: usize) -> Result<Self::SerializeStructVariant, Error> {
+        // Ok(SerializeStructVariant {
+        //     name: String::from(variant),
+        //     map: Map::new(),
+        // })
+        unimplemented!();
+    }
+}
+
+struct Dummy;
+
+// #[doc(hidden)]
+// pub struct SerializeVec {
+//     vec: Vec<Value>,
 // }
+//
+// #[doc(hidden)]
+// pub struct SerializeTupleVariant {
+//     name: String,
+//     vec: Vec<Value>,
+// }
+//
+// #[doc(hidden)]
+// pub struct SerializeMap {
+//     map: Map<String, Value>,
+//     next_key: Option<String>,
+// }
+//
+// #[doc(hidden)]
+// pub struct SerializeStructVariant {
+//     name: String,
+//     map: Map<String, Value>,
+// }
+//
+impl SerializeSeq for Dummy {
+    type Ok = Value;
+    type Error = Error;
+
+    fn serialize_element<T: ?Sized>(&mut self, value: &T) -> Result<(), Error>
+        where T: ser::Serialize
+    {
+        // self.vec.push(try!(to_value(&value)));
+        // Ok(())
+        unimplemented!();
+    }
+
+    fn end(self) -> Result<Value, Error> {
+        // Ok(Value::Array(self.vec))
+        unimplemented!();
+    }
+}
+
+impl SerializeTuple for Dummy {
+    type Ok = Value;
+    type Error = Error;
+
+    fn serialize_element<T: ?Sized>(&mut self, value: &T) -> Result<(), Error>
+        where T: ser::Serialize
+    {
+        // ser::SerializeSeq::serialize_element(self, value)
+        unimplemented!();
+    }
+
+    fn end(self) -> Result<Value, Error> {
+        // ser::SerializeSeq::end(self)
+        unimplemented!();
+    }
+}
+
+impl SerializeTupleStruct for Dummy {
+    type Ok = Value;
+    type Error = Error;
+
+    fn serialize_field<T: ?Sized>(&mut self, value: &T) -> Result<(), Error>
+        where T: ser::Serialize
+    {
+        // ser::SerializeSeq::serialize_element(self, value)
+        unimplemented!();
+    }
+
+    fn end(self) -> Result<Value, Error> {
+        // ser::SerializeSeq::end(self)
+        unimplemented!();
+    }
+}
+
+impl SerializeTupleVariant for Dummy {
+    type Ok = Value;
+    type Error = Error;
+
+    fn serialize_field<T: ?Sized>(&mut self, value: &T) -> Result<(), Error>
+        where T: ser::Serialize
+    {
+        // self.vec.push(try!(to_value(&value)));
+        // Ok(())
+        unimplemented!();
+    }
+
+    fn end(self) -> Result<Value, Error> {
+        // let mut object = Map::new();
+        //
+        // object.insert(self.name, Value::Array(self.vec));
+        //
+        // Ok(Value::Object(object))
+        unimplemented!();
+    }
+}
+
+impl ser::SerializeMap for Dummy {
+    type Ok = Value;
+    type Error = Error;
+
+    fn serialize_key<T: ?Sized>(&mut self, key: &T) -> Result<(), Error>
+        where T: ser::Serialize
+    {
+        // match try!(to_value(&key)) {
+        //     Value::String(s) => self.next_key = Some(s),
+        //     Value::Number(n) => {
+        //         if n.is_u64() || n.is_i64() {
+        //             self.next_key = Some(n.to_string())
+        //         } else {
+        //             return Err(Error::syntax(ErrorCode::KeyMustBeAString, 0, 0))
+        //         }
+        //     }
+        //     _ => return Err(Error::syntax(ErrorCode::KeyMustBeAString, 0, 0)),
+        // };
+        // Ok(())
+        unimplemented!();
+    }
+
+    fn serialize_value<T: ?Sized>(&mut self, value: &T) -> Result<(), Error>
+        where T: ser::Serialize
+    {
+        // let key = self.next_key.take();
+        // // Panic because this indicates a bug in the program rather than an
+        // // expected failure.
+        // let key = key.expect("serialize_value called before serialize_key");
+        // self.map.insert(key, try!(to_value(&value)));
+        // Ok(())
+        unimplemented!();
+    }
+
+    fn end(self) -> Result<Value, Error> {
+        // Ok(Value::Object(self.map))
+        unimplemented!();
+    }
+}
+
+impl SerializeStruct for Dummy {
+    type Ok = Value;
+    type Error = Error;
+
+    fn serialize_field<T: ?Sized>(&mut self, key: &'static str, value: &T) -> Result<(), Error>
+        where T: ser::Serialize
+    {
+        // try!(ser::SerializeMap::serialize_key(self, key));
+        // ser::SerializeMap::serialize_value(self, value)
+        unimplemented!();
+    }
+
+    fn end(self) -> Result<Value, Error> {
+        // ser::SerializeMap::end(self)
+        unimplemented!();
+    }
+}
+
+impl ser::SerializeStructVariant for Dummy {
+    type Ok = Value;
+    type Error = Error;
+
+    fn serialize_field<T: ?Sized>(&mut self, key: &'static str, value: &T) -> Result<(), Error>
+        where T: ser::Serialize
+    {
+        // self.map.insert(String::from(key), try!(to_value(&value)));
+        // Ok(())
+        unimplemented!();
+    }
+
+    fn end(self) -> Result<Value, Error> {
+        // let mut object = Map::new();
+        //
+        // object.insert(self.name, Value::Object(self.map));
+        //
+        // Ok(Value::Object(object))
+        unimplemented!();
+    }
+}
