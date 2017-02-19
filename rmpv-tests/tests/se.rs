@@ -21,21 +21,6 @@ fn test_encode_ok<T>(tc: &[(T, Value)])
 }
 
 #[test]
-fn pass_write_nil() {
-    test_encode_ok(&[
-        ((), Value::Nil),
-    ]);
-}
-
-#[test]
-fn pass_write_bool() {
-    test_encode_ok(&[
-        (true, Value::Boolean(true)),
-        (false, Value::Boolean(false)),
-    ]);
-}
-
-#[test]
 fn pass_write_sint() {
     test_encode_ok(&[
         (0, Value::I64(0)),
